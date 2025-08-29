@@ -4,7 +4,7 @@ import ClockBar from "./components/ClockBar";
 import TeamTabs from "./components/TeamTabs";
 import LivePanels from "./components/LivePanels";
 import EventLog from "./components/EventLog";
-import PersistenceBar from "./components/PersistenceBar";
+import MoreModal from "./components/MoreModal";
 import SetupScreen from "./pages/SetupScreen";
 import StatsView from "./pages/StatsView";
 import { HALF_SECONDS } from "./state/constants";
@@ -12,13 +12,13 @@ import reducer, { initialState, key } from "./state/reducer";
 import useHashRoute from "./hooks/useHashRoute";
 import { b64urlEncode, b64urlDecode } from "./utils/b64url";
 import { loadState, saveState } from "./utils/storage";
+import { storageKey } from "./utils/storage";
 
 export default function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [hash, nav] = useHashRoute();
-  const [shareOpen, setShareOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
-  const shareInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const loaded = loadState();
@@ -131,6 +131,36 @@ export default function App() {
     return `${window.location.origin}${window.location.pathname}#/stats?d=${enc}`;
   };
 
+  const saveSnapshot = () => {
+    const raw = JSON.stringify(state, null, 2);
+    const blob = new Blob([raw], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `gaa-stats-save-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const importSnapshot = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        dispatch({ type: "IMPORT", state: JSON.parse(String(reader.result)) });
+      } catch {
+        alert("Invalid JSON");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const clearSave = () => {
+    localStorage.removeItem(storageKey);
+    window.location.reload();
+  };
+
   const routeIsStats = hash.startsWith("#/stats");
   const sharedData = (() => {
     if (!routeIsStats) return null;
@@ -163,23 +193,15 @@ export default function App() {
               >
                 Undo
               </button>
-              {state.setupComplete && (
-                <button
-                  className="px-3 py-2 rounded-xl border bg-white"
-                  onClick={() => {
-                    const url = makeShareUrl();
-                    setShareUrl(url);
-                    setShareOpen(true);
-                  }}
-                >
-                  Share
-                </button>
-              )}
+
               <button
                 className="px-3 py-2 rounded-xl border bg-white"
-                onClick={handleNewMatch}
+                onClick={() => {
+                  setShareUrl(makeShareUrl());
+                  setMoreOpen(true);
+                }}
               >
-                New Match
+                More
               </button>
             </div>
           ) : (
@@ -192,54 +214,6 @@ export default function App() {
           )}
         </div>
       </div>
-
-      {shareOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl p-4 w-full max-w-md">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold">Share Live Stats</h2>
-              <button
-                className="text-sm px-2 py-1"
-                onClick={() => setShareOpen(false)}
-              >
-                Close
-              </button>
-            </div>
-            <label className="text-sm block mb-2">Shareable URL</label>
-            <input
-              ref={shareInputRef}
-              className="w-full border rounded-xl p-2 font-mono text-xs"
-              readOnly
-              value={shareUrl}
-            />
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button
-                className="py-2 rounded-xl bg-gray-900 text-white"
-                onClick={() => {
-                  try {
-                    shareInputRef.current?.focus();
-                    shareInputRef.current?.select();
-                  } catch {}
-                }}
-              >
-                Select Link
-              </button>
-              <a
-                className="py-2 rounded-xl bg-blue-600 text-white text-center"
-                href={shareUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Open
-              </a>
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Tip: Tap "Select Link" then use Copy. Some browsers block
-              automatic clipboard access.
-            </p>
-          </div>
-        </div>
-      )}
 
       {routeIsStats ? (
         <StatsView data={sharedData} />
@@ -294,14 +268,21 @@ export default function App() {
             }
           />
           <EventLog events={state.events} teams={state.teams} />
-          <PersistenceBar
-            state={state}
-            onImport={(obj: any) => dispatch({ type: "IMPORT", state: obj })}
-          />
         </div>
       )}
 
       <div className="h-8" />
+
+      <MoreModal
+        open={moreOpen}
+        onClose={() => setMoreOpen(false)}
+        shareUrl={shareUrl}
+        onRefreshShare={() => setShareUrl(makeShareUrl())}
+        onSaveSnapshot={saveSnapshot}
+        onImportSnapshot={importSnapshot}
+        onClearSave={clearSave}
+        onNewMatch={handleNewMatch}
+      />
     </div>
   );
 }
