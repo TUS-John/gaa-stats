@@ -34,18 +34,24 @@ export default function App() {
   }, [state.running]);
 
   const scoreRef = useRef<HTMLDivElement>(null);
+  const lastScrollRef = useRef(0);
+
   const focusScoreHeader = () => {
     const el = scoreRef.current;
+    if (el) el.focus({ preventScroll: true });
+
+    const now = performance.now();
+    if (now - lastScrollRef.current < 500) return; // throttle to 1 call / 500ms
+    lastScrollRef.current = now;
+
+    // Only scroll if the header isn't fully visible
     if (el) {
-      el.focus();
-      try {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-      } catch {}
+      const r = el.getBoundingClientRect();
+      const visible = r.top >= 0 && r.bottom <= window.innerHeight;
+      if (visible) return;
     }
-    // Also ensure top-of-page view (covers any edge cases)
-    try {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch {}
+    // Use instant scroll; Safari can stack 'smooth' animations
+    window.scrollTo({ top: 0, behavior: "auto" });
   };
 
   // when the main page becomes visible (not stats) and setup is complete
@@ -255,11 +261,11 @@ export default function App() {
             gameSeconds={gameSeconds}
             onScore={(a: any) => {
               dispatch({ type: "SCORE", nowSec: gameSeconds, ...a });
-              setTimeout(focusScoreHeader, 0);
+              requestAnimationFrame(focusScoreHeader);
             }}
             onCard={(a: any) => {
               dispatch({ type: "CARD", nowSec: gameSeconds, ...a });
-              setTimeout(focusScoreHeader, 0);
+              requestAnimationFrame(focusScoreHeader);
             }}
             onSub={(a: any) =>
               dispatch({ type: "SUB", nowSec: gameSeconds, ...a })
