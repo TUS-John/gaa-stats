@@ -39,6 +39,11 @@ export default function TeamPanel({
       .map(([k]) => Number(k.split("|")[1]))
   );
 
+  const slotsDesc = React.useMemo(
+    () => Array.from({ length: 15 }, (_, i) => 14 - i),
+    []
+  );
+
   const onFieldNumbers = team.onField as (number | null)[];
   const benchNumbers = useMemo(() => {
     const s = new Set(onFieldNumbers.filter(Boolean) as number[]);
@@ -79,7 +84,7 @@ export default function TeamPanel({
           <div className="p-2 pt-0">
             <div className="grid grid-cols-2 gap-2">
               <div className="grid grid-cols-1 gap-2">
-                {Btn("Point (Play)", "bg-gray-900 text-white", () =>
+                {Btn("Point (Play)", "bg-emerald-600 text-white", () =>
                   logThenClose(() =>
                     onScore({
                       teamIdx,
@@ -89,7 +94,7 @@ export default function TeamPanel({
                     })
                   )
                 )}
-                {Btn("Goal (Play)", "bg-gray-900 text-white", () =>
+                {Btn("Goal (Play)", "bg-emerald-600 text-white", () =>
                   logThenClose(() =>
                     onScore({
                       teamIdx,
@@ -106,7 +111,7 @@ export default function TeamPanel({
                 )}
               </div>
               <div className="grid grid-cols-1 gap-2">
-                {Btn("Point (Free)", "bg-gray-900 text-white", () =>
+                {Btn("Point (Free)", "bg-blue-700 text-white", () =>
                   logThenClose(() =>
                     onScore({
                       teamIdx,
@@ -116,7 +121,7 @@ export default function TeamPanel({
                     })
                   )
                 )}
-                {Btn("Goal (Free)", "bg-gray-900 text-white", () =>
+                {Btn("Goal (Free)", "bg-blue-700 text-white", () =>
                   logThenClose(() =>
                     onScore({
                       teamIdx,
@@ -136,10 +141,10 @@ export default function TeamPanel({
           </div>
         )}
       </div>
+      {/* On-field list: show slots 15 → 1 (i.e., indices 14 → 0) */}
 
-      {/* On-field list: 15 slots, no positions */}
       <div className="grid grid-cols-1 gap-2">
-        {Array.from({ length: 15 }, (_, slot) => {
+        {slotsDesc.map((slot) => {
           const num = team.onField[slot] as number | null;
           const name = num ? team.squad[num - 1]?.name || "" : "";
           const isRed = !!(num && redSet.has(num));
@@ -183,7 +188,7 @@ export default function TeamPanel({
                 <div className="p-2 pt-0">
                   <div className="grid grid-cols-2 gap-2">
                     <div className="grid grid-cols-1 gap-2">
-                      {Btn("Point (Play)", "bg-gray-900 text-white", () =>
+                      {Btn("Point (Play)", "bg-emerald-600 text-white", () =>
                         logThenClose(() =>
                           onScore({
                             teamIdx,
@@ -193,7 +198,7 @@ export default function TeamPanel({
                           })
                         )
                       )}
-                      {Btn("Goal (Play)", "bg-gray-900 text-white", () =>
+                      {Btn("Goal (Play)", "bg-emerald-600 text-white", () =>
                         logThenClose(() =>
                           onScore({
                             teamIdx,
@@ -210,7 +215,7 @@ export default function TeamPanel({
                       )}
                     </div>
                     <div className="grid grid-cols-1 gap-2">
-                      {Btn("Point (Free)", "bg-gray-900 text-white", () =>
+                      {Btn("Point (Free)", "bg-blue-700 text-white", () =>
                         logThenClose(() =>
                           onScore({
                             teamIdx,
@@ -220,7 +225,7 @@ export default function TeamPanel({
                           })
                         )
                       )}
-                      {Btn("Goal (Free)", "bg-gray-900 text-white", () =>
+                      {Btn("Goal (Free)", "bg-blue-700 text-white", () =>
                         logThenClose(() =>
                           onScore({
                             teamIdx,
@@ -243,7 +248,6 @@ export default function TeamPanel({
           );
         })}
       </div>
-
       {/* Substitutions only (move/swap/rotate removed) */}
       <div className="border-t pt-3">
         <div className="font-semibold mb-2">Substitution</div>

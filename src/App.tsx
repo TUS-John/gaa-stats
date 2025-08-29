@@ -36,11 +36,15 @@ export default function App() {
   const scoreRef = useRef<HTMLDivElement>(null);
   const focusScoreHeader = () => {
     const el = scoreRef.current;
-    if (!el) return;
-    // Make focusable (tabIndex is on the wrapper below)
-    el.focus();
+    if (el) {
+      el.focus();
+      try {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch {}
+    }
+    // Also ensure top-of-page view (covers any edge cases)
     try {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch {}
   };
 
@@ -249,12 +253,14 @@ export default function App() {
           <TeamTabs
             state={state}
             gameSeconds={gameSeconds}
-            onScore={(a: any) =>
-              dispatch({ type: "SCORE", nowSec: gameSeconds, ...a })
-            }
-            onCard={(a: any) =>
-              dispatch({ type: "CARD", nowSec: gameSeconds, ...a })
-            }
+            onScore={(a: any) => {
+              dispatch({ type: "SCORE", nowSec: gameSeconds, ...a });
+              setTimeout(focusScoreHeader, 0);
+            }}
+            onCard={(a: any) => {
+              dispatch({ type: "CARD", nowSec: gameSeconds, ...a });
+              setTimeout(focusScoreHeader, 0);
+            }}
             onSub={(a: any) =>
               dispatch({ type: "SUB", nowSec: gameSeconds, ...a })
             }
