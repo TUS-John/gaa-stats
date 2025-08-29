@@ -261,11 +261,15 @@ export default function App() {
             gameSeconds={gameSeconds}
             onScore={(a: any) => {
               dispatch({ type: "SCORE", nowSec: gameSeconds, ...a });
-              requestAnimationFrame(focusScoreHeader);
+              {
+                /* requestAnimationFrame(focusScoreHeader); */
+              }
             }}
             onCard={(a: any) => {
               dispatch({ type: "CARD", nowSec: gameSeconds, ...a });
-              requestAnimationFrame(focusScoreHeader);
+              {
+                /* requestAnimationFrame(focusScoreHeader); */
+              }
             }}
             onSub={(a: any) =>
               dispatch({ type: "SUB", nowSec: gameSeconds, ...a })
