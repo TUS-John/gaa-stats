@@ -1,7 +1,6 @@
 import { produce } from "immer";
 import { HALF_SECONDS, TOTAL_GAME_SECONDS } from "./constants";
 
-// --- helpers / inits (unchanged in spirit) ---
 const defaultSquad = (names: string[] = []) =>
   Array.from({ length: 30 }, (_, i) => ({
     number: i + 1,
@@ -48,49 +47,45 @@ export const initialState = {
   running: false,
   elapsedMs: 0,
   runAnchorMs: null as number | null,
-  heartbeat: 0, // used by your TICK UI
+  heartbeat: 0,
   currentHalf: 1 as 1 | 2,
   events: [] as any[],
   yellows: {} as Record<string, { at: number; expiresAt: number }[]>,
   reds: {} as Record<string, true>,
-  history: [] as any[], // keep small; see pushHistory
 };
 
 type AppState = typeof initialState;
 
-// small & safe history (cap to 10). If undo isn’t critical, you can remove history entirely.
-function pushHistory(draft: AppState, prev: AppState) {
-  const MAX = 10;
-  draft.history.push(prev); // NOTE: prev is the *base* (frozen) state reference
-  if (draft.history.length > MAX) draft.history.shift();
+function ensurePlayerRow(team: any, n: number) {
+  const name = n === 0 ? "Unknown" : team.squad[n - 1]?.name || `#${n}`;
+  return (team.byPlayer[n] ||= {
+    name,
+    goals: 0,
+    points: 0,
+    freesGoals: 0,
+    freesPoints: 0,
+  });
 }
 
-// --- reducer ---
 export default function reducer(state: AppState, action: any): AppState {
   return produce(state, (draft) => {
     switch (action.type) {
-      case "LOAD": {
-        // Replace state entirely
+      case "LOAD":
         return action.state as AppState;
-      }
 
-      case "NEW_MATCH": {
+      case "NEW_MATCH":
         return initialState as AppState;
-      }
 
       case "SETUP": {
         const { teamA, teamB, rosterA, rosterB } = action;
-        // full replace from initial template
         const next = produce(initialState, (d) => {
           d.setupComplete = true;
-
           d.teams[0].name = teamA || "Team A";
           d.teams[0].squad = defaultSquad(rosterA || []);
           d.teams[0].onField = defaultOnField();
           d.teams[0].positionByNumber = buildPositionByNumber(
             d.teams[0].onField
           );
-
           d.teams[1].name = teamB || "Team B";
           d.teams[1].squad = defaultSquad(rosterB || []);
           d.teams[1].onField = defaultOnField();
@@ -101,7 +96,7 @@ export default function reducer(state: AppState, action: any): AppState {
         return next;
       }
 
-      // --- timing ---
+      // ---- timing ----
       case "TICK": {
         if (!draft.running) return;
         draft.heartbeat += 1;
@@ -110,7 +105,6 @@ export default function reducer(state: AppState, action: any): AppState {
 
       case "START": {
         if (draft.running) return;
-        pushHistory(draft, state);
         draft.running = true;
         draft.runAnchorMs = action.nowMs;
         return;
@@ -118,7 +112,6 @@ export default function reducer(state: AppState, action: any): AppState {
 
       case "PAUSE": {
         if (!draft.running) return;
-        pushHistory(draft, state);
         const now = action.nowMs;
         draft.elapsedMs += now - (draft.runAnchorMs || now);
         draft.runAnchorMs = null;
@@ -127,7 +120,6 @@ export default function reducer(state: AppState, action: any): AppState {
       }
 
       case "NEXT_HALF": {
-        pushHistory(draft, state);
         const now = action.nowMs;
         const currentMs =
           draft.elapsedMs +
@@ -141,18 +133,14 @@ export default function reducer(state: AppState, action: any): AppState {
       }
 
       case "RESET_TIME": {
-        pushHistory(draft, state);
-        // reset timers
         draft.running = false;
         draft.elapsedMs = 0;
         draft.runAnchorMs = null;
         draft.currentHalf = 1;
-        // optional: adjust yellows if you were carrying remaining time; your current app doesn’t need it
         return;
       }
 
       case "RESET_ALL": {
-        pushHistory(draft, state);
         draft.running = false;
         draft.elapsedMs = 0;
         draft.runAnchorMs = null;
@@ -167,24 +155,15 @@ export default function reducer(state: AppState, action: any): AppState {
         return;
       }
 
-      // --- gameplay ---
+      // ---- gameplay ----
       case "SCORE": {
-        pushHistory(draft, state);
-
         const { teamIdx, kind, via, playerNumber } = action;
         const team = draft.teams[teamIdx];
         if (kind === "goal") team.score.goals += 1;
         else team.score.points += 1;
 
         const n = Number(playerNumber) || 0;
-        const name = n === 0 ? "Unknown" : team.squad[n - 1]?.name || `#${n}`;
-        const row = (team.byPlayer[n] ||= {
-          name,
-          goals: 0,
-          points: 0,
-          freesGoals: 0,
-          freesPoints: 0,
-        });
+        const row = ensurePlayerRow(team, n);
         if (kind === "goal") {
           row.goals += 1;
           if (via === "free") row.freesGoals += 1;
@@ -205,18 +184,16 @@ export default function reducer(state: AppState, action: any): AppState {
               : via === "free"
               ? "Free Point"
               : "Point",
+          kind,
+          via,
           playerNumber: n,
-          name: n === 0 ? "Unknown" : team.squad[n - 1]?.name || "",
         });
-        // (optional) cap events to keep UI snappy
         if (draft.events.length > 500)
           draft.events.splice(0, draft.events.length - 500);
         return;
       }
 
       case "CARD": {
-        pushHistory(draft, state);
-
         const { teamIdx, card, playerNumber, nowSec } = action;
         const team = draft.teams[teamIdx];
         const n = Number(playerNumber);
@@ -235,15 +212,16 @@ export default function reducer(state: AppState, action: any): AppState {
             teamIdx,
             type: "Red Card",
             playerNumber: n,
-            name: n === 0 ? "Unknown" : team.squad[n - 1]?.name || "",
+            prevPos: pos ?? null,
           });
           return;
         }
 
-        // yellow / second yellow
-        const recs = draft.yellows[k];
+        // yellow or second yellow
+        const prevYellow = draft.yellows[k];
         const hasActive =
-          Array.isArray(recs) && recs.some((r) => r.expiresAt > nowSec);
+          Array.isArray(prevYellow) &&
+          prevYellow.some((r) => r.expiresAt > nowSec);
         if (hasActive) {
           draft.reds[k] = true;
           delete draft.yellows[k];
@@ -257,13 +235,17 @@ export default function reducer(state: AppState, action: any): AppState {
             teamIdx,
             type: "Second Yellow → Red",
             playerNumber: n,
-            name: n === 0 ? "Unknown" : team.squad[n - 1]?.name || "",
+            prevPos: pos ?? null,
+            prevYellow,
           });
           return;
         }
 
-        const expiresAt = Math.min(nowSec + 10 * 60, TOTAL_GAME_SECONDS);
-        draft.yellows[k] = [{ at: nowSec, expiresAt }];
+        const rec = {
+          at: nowSec,
+          expiresAt: Math.min(nowSec + 10 * 60, TOTAL_GAME_SECONDS),
+        };
+        draft.yellows[k] = [rec];
         if (pos != null) {
           team.onField[pos] = null;
           delete team.positionByNumber[n];
@@ -274,19 +256,17 @@ export default function reducer(state: AppState, action: any): AppState {
           teamIdx,
           type: "Yellow Card (10m)",
           playerNumber: n,
-          name: n === 0 ? "Unknown" : team.squad[n - 1]?.name || "",
+          prevPos: pos ?? null,
+          yellowRec: rec,
         });
         return;
       }
 
       case "SUB": {
-        pushHistory(draft, state);
-
         const { teamIdx, inNumber, outNumber, nowSec } = action;
         const team = draft.teams[teamIdx];
         const outPos = team.positionByNumber[outNumber];
         if (outPos == null) return;
-
         const inKey = key(teamIdx, inNumber);
         if (draft.reds[inKey]) return;
 
@@ -299,21 +279,21 @@ export default function reducer(state: AppState, action: any): AppState {
           half: draft.currentHalf,
           teamIdx,
           type: "Substitution",
-          detail: `#${inNumber} for #${outNumber}`,
-          playerNumber: inNumber,
-          name: team.squad[inNumber - 1]?.name || "",
+          inNumber,
+          outNumber,
+          pos: outPos,
         });
+        if (draft.events.length > 500)
+          draft.events.splice(0, draft.events.length - 500);
         return;
       }
 
       case "RESTORE_SINBIN": {
-        pushHistory(draft, state);
-
         const { teamIdx, number, nowSec } = action;
         const team = draft.teams[teamIdx];
         const k = key(teamIdx, number);
-        if (!Array.isArray(draft.yellows[k]) || draft.yellows[k].length === 0)
-          return;
+        const prevYellow = draft.yellows[k];
+        if (!Array.isArray(prevYellow) || prevYellow.length === 0) return;
 
         // first empty slot
         let targetPos: number | null = null;
@@ -334,19 +314,134 @@ export default function reducer(state: AppState, action: any): AppState {
           teamIdx,
           type: "Return from Sin-bin",
           playerNumber: number,
-          name: team.squad[number - 1]?.name || "",
+          pos: targetPos,
+          prevYellow,
         });
         return;
       }
 
-      case "UNDO": {
-        const hist = draft.history;
-        if (!hist || hist.length === 0) return;
-        // Replace entire state with the last snapshot
-        const prev = hist[hist.length - 1];
-        // pop before returning
-        hist.pop();
-        return prev as AppState;
+      // ---- tiny, event-only undo ----
+      case "UNDO_LAST_EVENT": {
+        const e = draft.events.pop();
+        if (!e) return;
+
+        const team = draft.teams[e.teamIdx];
+
+        switch (e.type) {
+          case "Goal":
+          case "Free Goal": {
+            // reverse scoreboard + player stats
+            team.score.goals = Math.max(0, team.score.goals - 1);
+            const n = Number(e.playerNumber) || 0;
+            const row = ensurePlayerRow(team, n);
+            row.goals = Math.max(0, row.goals - 1);
+            if (e.type === "Free Goal")
+              row.freesGoals = Math.max(0, row.freesGoals - 1);
+            return;
+          }
+          case "Point":
+          case "Free Point": {
+            team.score.points = Math.max(0, team.score.points - 1);
+            const n = Number(e.playerNumber) || 0;
+            const row = ensurePlayerRow(team, n);
+            row.points = Math.max(0, row.points - 1);
+            if (e.type === "Free Point")
+              row.freesPoints = Math.max(0, row.freesPoints - 1);
+            return;
+          }
+          case "Yellow Card (10m)": {
+            // put player back (best effort) and remove yellow
+            const n = Number(e.playerNumber);
+            const k = key(e.teamIdx, n);
+            // remove the exact yellow we added (or just clear)
+            delete draft.yellows[k];
+            const prevPos = e.prevPos as number | null;
+            if (prevPos != null && team.onField[prevPos] == null) {
+              team.onField[prevPos] = n;
+              team.positionByNumber[n] = prevPos;
+            } else {
+              // fallback: first empty slot
+              for (let i = 0; i < 15; i++)
+                if (team.onField[i] == null) {
+                  team.onField[i] = n;
+                  team.positionByNumber[n] = i;
+                  break;
+                }
+            }
+            return;
+          }
+          case "Second Yellow → Red": {
+            const n = Number(e.playerNumber);
+            const k = key(e.teamIdx, n);
+            // remove red, restore previous yellow(s) if we have them
+            delete draft.reds[k];
+            if (e.prevYellow) draft.yellows[k] = e.prevYellow;
+            const prevPos = e.prevPos as number | null;
+            if (prevPos != null && team.onField[prevPos] == null) {
+              team.onField[prevPos] = n;
+              team.positionByNumber[n] = prevPos;
+            } else {
+              for (let i = 0; i < 15; i++)
+                if (team.onField[i] == null) {
+                  team.onField[i] = n;
+                  team.positionByNumber[n] = i;
+                  break;
+                }
+            }
+            return;
+          }
+          case "Red Card": {
+            const n = Number(e.playerNumber);
+            const k = key(e.teamIdx, n);
+            delete draft.reds[k];
+            const prevPos = e.prevPos as number | null;
+            if (prevPos != null && team.onField[prevPos] == null) {
+              team.onField[prevPos] = n;
+              team.positionByNumber[n] = prevPos;
+            } else {
+              for (let i = 0; i < 15; i++)
+                if (team.onField[i] == null) {
+                  team.onField[i] = n;
+                  team.positionByNumber[n] = i;
+                  break;
+                }
+            }
+            return;
+          }
+          case "Substitution": {
+            const pos = e.pos as number;
+            const inN = e.inNumber as number;
+            const outN = e.outNumber as number;
+            // invert: put outN back in the same pos, bench inN
+            if (team.onField[pos] === inN) {
+              team.onField[pos] = outN;
+              team.positionByNumber[outN] = pos;
+              delete team.positionByNumber[inN];
+            }
+            return;
+          }
+          case "Return from Sin-bin": {
+            const n = Number(e.playerNumber);
+            const k = key(e.teamIdx, n);
+            // remove from field at recorded pos and restore yellow(s)
+            const pos = e.pos as number | null;
+            if (pos != null && team.onField[pos] === n) {
+              team.onField[pos] = null;
+              delete team.positionByNumber[n];
+            } else {
+              // if not at pos for some reason, try to remove wherever it is
+              const p = team.positionByNumber[n];
+              if (p != null) {
+                team.onField[p] = null;
+                delete team.positionByNumber[n];
+              }
+            }
+            if (e.prevYellow) draft.yellows[k] = e.prevYellow;
+            return;
+          }
+          default:
+            return; // non-undoable event types
+        }
       }
 
       case "SET_HALF": {
@@ -354,12 +449,13 @@ export default function reducer(state: AppState, action: any): AppState {
         return;
       }
 
-      case "IMPORT": {
+      case "IMPORT":
         return action.state as AppState;
-      }
 
       default:
         return;
     }
   });
 }
+
+export { defaultSquad, defaultOnField, buildPositionByNumber, initialTeam };

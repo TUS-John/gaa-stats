@@ -215,12 +215,16 @@ export default function App() {
             <div className="flex items-center gap-2">
               <button
                 className={`px-3 py-2 rounded-xl border ${
-                  state.history && state.history.length > 0
+                  state.events.length > 0
                     ? "bg-white"
                     : "bg-gray-100 text-gray-400"
                 }`}
                 disabled={!(state.history && state.history.length > 0)}
-                onClick={() => dispatch({ type: "UNDO" })}
+                onClick={() => {
+                  dispatch({ type: "UNDO_LAST_EVENT" });
+                  // make it durable right away
+                  saveNow(latestRef.current);
+                }}
               >
                 Undo
               </button>
