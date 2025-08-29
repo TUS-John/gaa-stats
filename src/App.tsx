@@ -11,7 +11,7 @@ import { HALF_SECONDS } from "./state/constants";
 import reducer, { initialState, key } from "./state/reducer";
 import useHashRoute from "./hooks/useHashRoute";
 import { b64urlEncode, b64urlDecode } from "./utils/b64url";
-import { loadState, saveStateThrottled } from "./utils/storage";
+import { loadState, enqueueSave, saveNow } from "./utils/storage";
 import { storageKey } from "./utils/storage";
 
 export default function App() {
@@ -24,14 +24,35 @@ export default function App() {
     const loaded = loadState();
     if (loaded) dispatch({ type: "LOAD", state: loaded });
   }, []);
+
+  const latestRef = useRef(state);
   useEffect(() => {
-    saveStateThrottled(state);
+    latestRef.current = state;
   }, [state]);
+
+  const persist = () => enqueueSave(latestRef.current);
+  const persistNow = () => saveNow(latestRef.current);
+
   useEffect(() => {
     if (!state.running) return;
     const id = setInterval(() => dispatch({ type: "TICK" }), 1000);
     return () => clearInterval(id);
   }, [state.running]);
+
+  // Flush on tab close / refresh / backgrounding (Safari)
+  useEffect(() => {
+    const handler = () => persistNow();
+    window.addEventListener("pagehide", handler); // best for Safari/iOS
+    window.addEventListener("beforeunload", handler); // others
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") handler();
+    });
+    return () => {
+      window.removeEventListener("pagehide", handler);
+      window.removeEventListener("beforeunload", handler);
+      document.removeEventListener("visibilitychange", handler as any);
+    };
+  }, []);
 
   const scoreRef = useRef<HTMLDivElement>(null);
   const lastScrollRef = useRef(0);
@@ -121,7 +142,7 @@ export default function App() {
   );
 
   const handleNewMatch = () => {
-    localStorage.removeItem("gaa-stats-state-v12");
+    localStorage.removeItem(storageKey);
     dispatch({ type: "NEW_MATCH" });
     nav("/setup");
   };
@@ -231,6 +252,7 @@ export default function App() {
         <SetupScreen
           onComplete={(p: any) => {
             dispatch({ type: "SETUP", ...p });
+            persist();
             nav("/match");
           }}
         />
@@ -244,17 +266,23 @@ export default function App() {
             elapsed={halfElapsed}
             running={state.running}
             overTime={isOvertimeH1}
-            onStart={() => dispatch({ type: "START", nowMs: Date.now() })}
+            onStart={() => {
+              dispatch({ type: "START", nowMs: Date.now() });
+              persist();
+            }}
             onPause={() => dispatch({ type: "PAUSE", nowMs: Date.now() })}
-            onNextHalf={() =>
-              dispatch({ type: "NEXT_HALF", nowMs: Date.now() })
-            }
-            onResetTime={() =>
-              dispatch({ type: "RESET_TIME", nowSec: gameSeconds })
-            }
-            onResetAll={() =>
-              dispatch({ type: "RESET_ALL", nowSec: gameSeconds })
-            }
+            onNextHalf={() => {
+              dispatch({ type: "NEXT_HALF", nowMs: Date.now() });
+              persist();
+            }}
+            onResetTime={() => {
+              dispatch({ type: "RESET_TIME", nowSec: gameSeconds });
+              persist();
+            }}
+            onResetAll={() => {
+              dispatch({ type: "RESET_ALL", nowSec: gameSeconds });
+              persist();
+            }}
           />
           <TeamTabs
             state={state}
@@ -262,26 +290,38 @@ export default function App() {
             onScore={(a: any) => {
               dispatch({ type: "SCORE", nowSec: gameSeconds, ...a });
               {
+                persistNow();
                 requestAnimationFrame(focusScoreHeader);
               }
             }}
             onCard={(a: any) => {
               dispatch({ type: "CARD", nowSec: gameSeconds, ...a });
               {
+                persistNow();
                 requestAnimationFrame(focusScoreHeader);
               }
             }}
-            onSub={(a: any) =>
-              dispatch({ type: "SUB", nowSec: gameSeconds, ...a })
-            }
+            onSub={(a: any) => {
+              dispatch({ type: "SUB", nowSec: gameSeconds, ...a });
+              {
+                persist();
+              }
+            }}
           />
           <LivePanels
             activeYellows={activeYellows}
             topScorersByTeam={topScorersByTeam}
             teams={state.teams}
-            onRestore={(args: any) =>
-              dispatch({ type: "RESTORE_SINBIN", nowSec: gameSeconds, ...args })
-            }
+            onRestore={(args: any) => {
+              dispatch({
+                type: "RESTORE_SINBIN",
+                nowSec: gameSeconds,
+                ...args,
+              });
+              {
+                persist();
+              }
+            }}
           />
           <EventLog events={state.events} teams={state.teams} />
         </div>
