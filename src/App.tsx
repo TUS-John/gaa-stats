@@ -11,7 +11,7 @@ import { HALF_SECONDS } from "./state/constants";
 import reducer, { initialState, key } from "./state/reducer";
 import useHashRoute from "./hooks/useHashRoute";
 import { b64urlEncode, b64urlDecode } from "./utils/b64url";
-import { loadState, saveState } from "./utils/storage";
+import { loadState, saveStateThrottled } from "./utils/storage";
 import { storageKey } from "./utils/storage";
 
 export default function App() {
@@ -25,7 +25,7 @@ export default function App() {
     if (loaded) dispatch({ type: "LOAD", state: loaded });
   }, []);
   useEffect(() => {
-    saveState(state);
+    saveStateThrottled(state);
   }, [state]);
   useEffect(() => {
     if (!state.running) return;
