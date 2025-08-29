@@ -219,7 +219,7 @@ export default function App() {
                     ? "bg-white"
                     : "bg-gray-100 text-gray-400"
                 }`}
-                disabled={!(state.history && state.history.length > 0)}
+                disabled={!(state.events.length > 0)}
                 onClick={() => {
                   dispatch({ type: "UNDO_LAST_EVENT" });
                   // make it durable right away
