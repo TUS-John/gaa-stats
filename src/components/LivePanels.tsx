@@ -13,6 +13,19 @@ export default function LivePanels({
   teams: any[];
   onRestore: (a: any) => void;
 }) {
+  const fmtPlayerLine = (r: any) => {
+    const gp = `${r.goals}-${r.points}`;
+    const frees = `(${r.freesGoals || 0}-${r.freesPoints || 0}f)`;
+    const total = `(${r.total})`;
+    const eff =
+      r.attempts > 0
+        ? ` • ${Math.round((r.made / r.attempts) * 100)}% (${r.made}/${
+            r.attempts
+          })`
+        : "";
+    return `${gp} ${frees} ${total}${eff}`;
+  };
+
   return (
     <div className="grid grid-cols-1 gap-3 mb-3">
       <div className="bg-white rounded-2xl shadow p-3">

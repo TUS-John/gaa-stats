@@ -10,6 +10,7 @@ export default function TeamPanel({
   onScore,
   onCard,
   onSub,
+  onMiss,
   reds,
   yellows,
 }: {
@@ -21,6 +22,7 @@ export default function TeamPanel({
   onScore: (a: any) => void;
   onCard: (a: any) => void;
   onSub: (a: any) => void;
+  onMiss: (a: any) => void;
   reds: any;
   yellows: any;
 }) {
@@ -137,6 +139,18 @@ export default function TeamPanel({
                   )
                 )}
               </div>
+              <div className="col-span-2">
+                <button
+                  className="w-full py-2 rounded-xl bg-slate-600 text-white hover:bg-slate-700 active:bg-slate-800
+               focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2
+               active:translate-y-[1px] transition-colors"
+                  onClick={() =>
+                    logThenClose(() => onMiss({ teamIdx, playerNumber: 0 }))
+                  }
+                >
+                  Miss / Save
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -240,6 +254,20 @@ export default function TeamPanel({
                           onCard({ teamIdx, card: "red", playerNumber: num })
                         )
                       )}
+                    </div>
+                    <div className="col-span-2">
+                      <button
+                        className="w-full py-2 rounded-xl bg-slate-600 text-white hover:bg-slate-700 active:bg-slate-800
+               focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2
+               active:translate-y-[1px] transition-colors"
+                        onClick={() =>
+                          logThenClose(() =>
+                            onMiss({ teamIdx, playerNumber: num })
+                          )
+                        }
+                      >
+                        Miss / Save
+                      </button>
                     </div>
                   </div>
                 </div>

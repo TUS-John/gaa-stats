@@ -7,12 +7,14 @@ export default function TeamTabs({
   onScore,
   onCard,
   onSub,
+  onMiss,
 }: {
   state: any;
   gameSeconds: number;
   onScore: (a: any) => void;
   onCard: (a: any) => void;
   onSub: (a: any) => void;
+  onMiss: (a: any) => void; // NEW
 }) {
   const [tab, setTab] = useState(0);
   const [expanded, setExpanded] = useState<any[]>([null, null]);
@@ -45,6 +47,7 @@ export default function TeamTabs({
         onScore={onScore}
         onCard={onCard}
         onSub={onSub}
+        onMiss={onMiss} // NEW
         reds={state.reds}
         yellows={state.yellows}
       />

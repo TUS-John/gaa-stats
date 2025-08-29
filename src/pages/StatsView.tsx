@@ -4,6 +4,19 @@ import { HALF_SECONDS } from "../state/constants";
 
 export default function StatsView({ data }: { data: any }) {
   if (!data) {
+    const fmtPlayerLine = (r: any) => {
+      const gp = `${r.goals}-${r.points}`;
+      const frees = `(${r.freesGoals || 0}-${r.freesPoints || 0}f)`;
+      const total = `(${r.total})`;
+      const eff =
+        r.attempts > 0
+          ? ` • ${Math.round((r.made / r.attempts) * 100)}% (${r.made}/${
+              r.attempts
+            })`
+          : "";
+      return `${gp} ${frees} ${total}${eff}`;
+    };
+
     return (
       <div className="p-3 max-w-md w-full mx-auto">
         <div className="bg-white rounded-2xl shadow p-4">

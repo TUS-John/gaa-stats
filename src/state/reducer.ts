@@ -64,6 +64,8 @@ function ensurePlayerRow(team: any, n: number) {
     points: 0,
     freesGoals: 0,
     freesPoints: 0,
+    attempts: 0, // NEW
+    made: 0, // NEW
   });
 }
 
@@ -164,6 +166,10 @@ export default function reducer(state: AppState, action: any): AppState {
 
         const n = Number(playerNumber) || 0;
         const row = ensurePlayerRow(team, n);
+
+        row.attempts += 1; // NEW
+        row.made += 1; // NEW
+
         if (kind === "goal") {
           row.goals += 1;
           if (via === "free") row.freesGoals += 1;
@@ -188,6 +194,27 @@ export default function reducer(state: AppState, action: any): AppState {
           via,
           playerNumber: n,
         });
+        if (draft.events.length > 500)
+          draft.events.splice(0, draft.events.length - 500);
+        return;
+      }
+
+      case "MISS": {
+        const { teamIdx, playerNumber, nowSec } = action;
+        const team = draft.teams[teamIdx];
+        const n = Number(playerNumber) || 0;
+        const row = ensurePlayerRow(team, n);
+
+        row.attempts += 1; // attempt, not made
+
+        draft.events.push({
+          t: nowSec,
+          half: draft.currentHalf,
+          teamIdx,
+          type: "Miss/Save",
+          playerNumber: n,
+        });
+
         if (draft.events.length > 500)
           draft.events.splice(0, draft.events.length - 500);
         return;
@@ -335,6 +362,8 @@ export default function reducer(state: AppState, action: any): AppState {
             const n = Number(e.playerNumber) || 0;
             const row = ensurePlayerRow(team, n);
             row.goals = Math.max(0, row.goals - 1);
+            row.made = Math.max(0, row.made - 1); // NEW
+            row.attempts = Math.max(0, row.attempts - 1); // NEW
             if (e.type === "Free Goal")
               row.freesGoals = Math.max(0, row.freesGoals - 1);
             return;
@@ -345,8 +374,16 @@ export default function reducer(state: AppState, action: any): AppState {
             const n = Number(e.playerNumber) || 0;
             const row = ensurePlayerRow(team, n);
             row.points = Math.max(0, row.points - 1);
+            row.made = Math.max(0, row.made - 1); // NEW
+            row.attempts = Math.max(0, row.attempts - 1); // NEW
             if (e.type === "Free Point")
               row.freesPoints = Math.max(0, row.freesPoints - 1);
+            return;
+          }
+          case "Miss/Save": {
+            const n = Number(e.playerNumber) || 0;
+            const row = ensurePlayerRow(team, n);
+            row.attempts = Math.max(0, row.attempts - 1);
             return;
           }
           case "Yellow Card (10m)": {

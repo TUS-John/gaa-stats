@@ -134,6 +134,8 @@ export default function App() {
           total: (r.goals || 0) * 3 + (r.points || 0),
           freesGoals: r.freesGoals || 0,
           freesPoints: r.freesPoints || 0,
+          attempts: r.attempts || 0, // NEW
+          made: r.made || (r.goals || 0) + (r.points || 0), // NEW (fallback)
         }));
         rows.sort((a, b) => b.total - a.total);
         return rows.slice(0, 5);
@@ -310,6 +312,12 @@ export default function App() {
               {
                 persist();
               }
+            }}
+            onMiss={(a: any) => {
+              // NEW
+              dispatch({ type: "MISS", nowSec: gameSeconds, ...a });
+              persist();
+              requestAnimationFrame(focusScoreHeader);
             }}
           />
           <LivePanels
