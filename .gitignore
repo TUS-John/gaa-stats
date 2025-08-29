@@ -1,0 +1,52 @@
+# --- Node / package managers ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json # <- keep if you want lockfile committed; remove this line to track it
+# pnpm-lock.yaml  # uncomment to ignore if you use pnpm and don't want the lockfile committed
+# yarn.lock       # same note for yarn
+
+# --- Vite / build output ---
+dist/
+.vite/
+coverage/
+
+# --- TypeScript / tooling ---
+*.tsbuildinfo
+# If tsc ever emitted JS next to TS by mistake, you can ignore it with:
+# src/**/*.js
+# src/**/*.js.map
+
+# --- Env files (keep examples tracked) ---
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# --- Editors / IDEs ---
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.history/
+
+# --- OS files ---
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# --- Misc ---
+*.log
+*.pid
+*.seed
+*.pid.lock
+*.orig
